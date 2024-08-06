@@ -2,14 +2,19 @@ package secretfilter
 
 import (
 	"context"
+	"embed"
 	"regexp"
 	"sync"
 
+	"github.com/BurntSushi/toml"
 	"github.com/grafana/alloy/internal/component"
 	"github.com/grafana/alloy/internal/component/common/loki"
 	"github.com/grafana/alloy/internal/featuregate"
 	"github.com/grafana/alloy/internal/runtime/logging/level"
 )
+
+//go:embed gitleaks.toml
+var embedFs embed.FS
 
 func init() {
 	component.Register(component.Registration{
@@ -27,7 +32,8 @@ func init() {
 // Arguments holds values which are used to configure the secretfilter
 // component.
 type Arguments struct {
-	ForwardTo []loki.LogsReceiver `alloy:"forward_to,attr"`
+	ForwardTo      []loki.LogsReceiver `alloy:"forward_to,attr"`
+	GitLeaksConfig string              `alloy:"gitleaks_config,attr,optional"`
 }
 
 // Exports holds the values exported by the secretfilter component.
@@ -51,10 +57,30 @@ var (
 type Component struct {
 	opts component.Options
 
-	mut      sync.RWMutex
-	args     Arguments
-	receiver loki.LogsReceiver
-	fanout   []loki.LogsReceiver
+	mut            sync.RWMutex
+	args           Arguments
+	receiver       loki.LogsReceiver
+	fanout         []loki.LogsReceiver
+	gitLeaksConfig GitLeaksConfig
+	Regexes        []*regexp.Regexp
+}
+
+// Not exhaustive. See https://github.com/gitleaks/gitleaks/blob/master/config/config.go
+type GitLeaksConfig struct {
+	AllowList struct {
+		Description string
+		Paths       []string
+	}
+	Rules []struct {
+		ID          string
+		Description string
+		Regex       string
+		Keywords    []string
+
+		Allowlist struct {
+			StopWords []string
+		}
+	}
 }
 
 // New creates a new secretfilter component.
@@ -63,6 +89,30 @@ func New(o component.Options, args Arguments) (*Component, error) {
 		opts:     o,
 		receiver: loki.NewLogsReceiver(),
 	}
+
+	var gitleaksCfg GitLeaksConfig
+	// Parsing GitLeaks configuration
+	if args.GitLeaksConfig == "" {
+		_, err := toml.DecodeFS(embedFs, "gitleaks.toml", &gitleaksCfg)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		_, err := toml.DecodeFile(args.GitLeaksConfig, &gitleaksCfg)
+		if err != nil {
+			return nil, err
+		}
+	}
+	c.gitLeaksConfig = gitleaksCfg
+	// Compiling regexes
+	for _, rule := range gitleaksCfg.Rules {
+		re, err := regexp.Compile(rule.Regex)
+		if err != nil {
+			return nil, err
+		}
+		c.Regexes = append(c.Regexes, re)
+	}
+	level.Info(c.opts.Logger).Log("Compiled regexes for secret detection", len(c.Regexes))
 
 	// Call to Update() once at the start.
 	if err := c.Update(args); err != nil {
@@ -85,9 +135,10 @@ func (c *Component) Run(ctx context.Context) error {
 		case entry := <-c.receiver.Chan():
 			level.Info(c.opts.Logger).Log("receiver", c.opts.ID, "incoming entry", entry.Line, "labels", entry.Labels.String())
 
-			var re = regexp.MustCompile(`test`)
-			s := re.ReplaceAllString(entry.Line, `attempt`)
-			entry.Line = s
+			for _, r := range c.Regexes {
+				s := r.ReplaceAllString(entry.Line, `<REDACTED-SECRET>`)
+				entry.Line = s
+			}
 
 			level.Info(c.opts.Logger).Log("receiver", c.opts.ID, "outgoing entry", entry.Line, "labels", entry.Labels.String())
 			for _, f := range c.fanout {

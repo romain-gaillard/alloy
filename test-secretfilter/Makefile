@@ -1,6 +1,11 @@
-.PHONY: up
-up: reset/env # First resets everything to make sure we have a clean environment and re-ingest the logs
+.PHONY: up-nobuild
+up-nobuild: reset/env
 	docker-compose up
+
+.PHONY: up
+up: reset/env
+	docker-compose build --no-cache
+	docker-compose up --force-recreate
 
 .PHONY: down
 down: down
