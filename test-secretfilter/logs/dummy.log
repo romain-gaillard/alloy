@@ -4,13 +4,13 @@ This line has no secrets.
 This line contains a GitHub PAT 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 and a GitHub OAuth Access token gho_5FPswFkzrxCUqecqjPbnokSDkgtPeQJZgW0j  and should be redacted.
 This line contains two GitHub App tokens ghs_XNKTysxGhkyS1wlWomUod5jDSEa2aeukKXeD ghu_0a2PwgU4LZt1xSW9kCk8jhKAJLcETbmDAtL2 and should be redacted.
 This line contains a GitHub refresh token ghr_eG6EcLaKtfTiqdMmKLAqsst6j4CT4ihJ53vm and should be redacted.
-This line contains a DroneCI token gKL3wTrxPX40slcpXFgEwUDIv8tKFwL4 and should be redacted.
+This line contains a DroneCI token droneci=gKL3wTrxPX40slcpXFgEwUDIv8tKFwL4 and should be redacted.
 This line contains a Grafana API key eyJrIjoiNuGdX6cP71cNGrNUPRX2kJsEfiBqwErvWKbyF28CghDBwxIgN2lCQKogA9pIaftbcx3O7Y== and should be redacted.
 This line contains a Grafana Cloud API token glc_UmA85DrUCBTd24N5eMh8XatuvkmUYmIY== and should be redacted.
 This line contains a Grafana Service Account token glsa_KVKJy6kXdR0rpOvHzkNtyNJFYr2c4VAE_EB2fc410 and should be redacted.
-This line contains an Okta tokens daf98AtyVCz5GGYYItVy7JFnbndoV7cVBooOyrHavA and should be redacted.
+This line contains an Okta token okta=daf98AtyVCz5GGYYItVy7JFnbndoV7cVBooOyrHavA and should be redacted.
 This line contains Slack secrets: xoxb-781236542736-2364535789652-GkwFDQoHqzXDVsC6GzqYUypD xoxb-263594206564-2343594206574-FGqddMF8t08v8N7Oq4i57vs1MBS xoxb-4614724432022-5152386766518-O5WzjWGLG0wcCm2WPrjEmnys and should be redacted.
 This line contains a private key -----BEGIN PRIVATE KEY-----MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAsjtGIk8SxD+OEiBpP2/TJUAF0upwuKGMk6wH8Rwov88VvzJrVm2NCticTk5FUg+UG5r8JArrV4tJPRHQyvqKwF4NiksuvOjv3HyIf4oaOhZjT8hDne1Bfv+cFqZJ61Gk0MjANh/T5q9vxER/7TdUNHKpoRV+NVlKN5bEU/NQ5FQjVXicfswxh6Y6fl2PIFqT2CfjD+FkBPU1iT9qyJYHA38IRvwNtcitFgCeZwdGPoxiPPh1WHY8VxpUVBv/2JsUtrB/rAIbGqZoxAIWvijJPe9o1TY3VlOzk9ASZ1AeatvOir+iDVJ5OpKmLnzc46QgGPUsjIyo6Sje9dxpGtoGQQIDAQAB-----END PRIVATE KEY----- and should be redacted.
 This line contains a Vault batch token HVB.XfR-lakvzTaxIjGTeenaPR54aGAF9NMWVoK4EEKbaAV3Pcrn7UYbGaTkaXq7h1oCu85XKVe9kGq0HogGHFI6a3a1-l5tU6eRkloIxljQ1Xekt_WoJx6jZLi-ItR2hDGu_W5-sjTooN and should be redacted.
 This line contains a Vault service token HVS.vPaSQ0waQikazz2t9zYrZRsmqX6chCpaBw9602qj_aZabx6StK5rQ1sNZmb2z3PP4kNhPFQL2oofkOKLHcZSsaE1T6 and should be redacted.
-This line contains a Sentry token bbdc7634f17d824fda3db536ebb929e5e107abcf6753920caf9e772b22262e63 and should be redacted.
+This line contains a Sentry token sentry=bbdc7634f17d824fda3db536ebb929e5e107abcf6753920caf9e772b22262e63 and should be redacted.
