@@ -4,6 +4,7 @@ import (
 	"context"
 	"embed"
 	"regexp"
+	"strings"
 	"sync"
 
 	"github.com/BurntSushi/toml"
@@ -15,6 +16,11 @@ import (
 
 //go:embed gitleaks.toml
 var embedFs embed.FS
+
+type Rule struct {
+	name  string
+	regex *regexp.Regexp
+}
 
 func init() {
 	component.Register(component.Registration{
@@ -34,6 +40,7 @@ func init() {
 type Arguments struct {
 	ForwardTo      []loki.LogsReceiver `alloy:"forward_to,attr"`
 	GitLeaksConfig string              `alloy:"gitleaks_config,attr,optional"`
+	Types          []string            `alloy:"types,attr,optional"`
 }
 
 // Exports holds the values exported by the secretfilter component.
@@ -62,7 +69,7 @@ type Component struct {
 	receiver       loki.LogsReceiver
 	fanout         []loki.LogsReceiver
 	gitLeaksConfig GitLeaksConfig
-	Regexes        []*regexp.Regexp
+	Rules          []Rule
 }
 
 // Not exhaustive. See https://github.com/gitleaks/gitleaks/blob/master/config/config.go
@@ -106,13 +113,29 @@ func New(o component.Options, args Arguments) (*Component, error) {
 	c.gitLeaksConfig = gitleaksCfg
 	// Compiling regexes
 	for _, rule := range gitleaksCfg.Rules {
+		if args.Types != nil && len(args.Types) > 0 {
+			var found bool
+			for _, t := range args.Types {
+				if strings.HasPrefix(strings.ToLower(rule.ID), strings.ToLower(t+"-")) {
+					found = true
+					continue
+				}
+			}
+			if !found {
+				// Skip that rule if it doesn't match any of the secret types
+				continue
+			}
+		}
 		re, err := regexp.Compile(rule.Regex)
 		if err != nil {
 			return nil, err
 		}
-		c.Regexes = append(c.Regexes, re)
+		c.Rules = append(c.Rules, Rule{
+			name:  rule.ID,
+			regex: re,
+		})
 	}
-	level.Info(c.opts.Logger).Log("Compiled regexes for secret detection", len(c.Regexes))
+	level.Info(c.opts.Logger).Log("Compiled regexes for secret detection", len(c.Rules))
 
 	// Call to Update() once at the start.
 	if err := c.Update(args); err != nil {
@@ -135,8 +158,8 @@ func (c *Component) Run(ctx context.Context) error {
 		case entry := <-c.receiver.Chan():
 			level.Info(c.opts.Logger).Log("receiver", c.opts.ID, "incoming entry", entry.Line, "labels", entry.Labels.String())
 
-			for _, r := range c.Regexes {
-				s := r.ReplaceAllString(entry.Line, `<REDACTED-SECRET>`)
+			for _, r := range c.Rules {
+				s := r.regex.ReplaceAllString(entry.Line, "<REDACTED-SECRET:"+r.name+">")
 				entry.Line = s
 			}
 

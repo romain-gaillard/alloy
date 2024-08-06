@@ -10,6 +10,7 @@ loki.source.file  "local_dummy_logs" {
 
 loki.secretfilter "secret_filter" {
     forward_to = [loki.process.process_logs.receiver]
+    types = ["aws"]
 }
 
 loki.process "process_logs" {

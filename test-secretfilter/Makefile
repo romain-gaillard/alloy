@@ -1,8 +1,8 @@
-.PHONY: up-nobuild
+.PHONY: up
 up-nobuild: reset/env
 	docker-compose up
 
-.PHONY: up
+.PHONY: up-build
 up: reset/env
 	docker-compose build --no-cache
 	docker-compose up --force-recreate
