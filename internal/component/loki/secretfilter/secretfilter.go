@@ -39,8 +39,9 @@ func init() {
 // component.
 type Arguments struct {
 	ForwardTo      []loki.LogsReceiver `alloy:"forward_to,attr"`
-	GitLeaksConfig string              `alloy:"gitleaks_config,attr,optional"`
+	GitleaksConfig string              `alloy:"gitleaks_config,attr,optional"`
 	Types          []string            `alloy:"types,attr,optional"`
+	RedactWith     string              `alloy:"redact_with,attr,optional"`
 }
 
 // Exports holds the values exported by the secretfilter component.
@@ -64,12 +65,11 @@ var (
 type Component struct {
 	opts component.Options
 
-	mut            sync.RWMutex
-	args           Arguments
-	receiver       loki.LogsReceiver
-	fanout         []loki.LogsReceiver
-	gitLeaksConfig GitLeaksConfig
-	Rules          []Rule
+	mut      sync.RWMutex
+	args     Arguments
+	receiver loki.LogsReceiver
+	fanout   []loki.LogsReceiver
+	Rules    []Rule
 }
 
 // Not exhaustive. See https://github.com/gitleaks/gitleaks/blob/master/config/config.go
@@ -97,26 +97,29 @@ func New(o component.Options, args Arguments) (*Component, error) {
 		receiver: loki.NewLogsReceiver(),
 	}
 
+	// Parse GitLeaks configuration
 	var gitleaksCfg GitLeaksConfig
-	// Parsing GitLeaks configuration
-	if args.GitLeaksConfig == "" {
+	if args.GitleaksConfig == "" {
+		// If no config file provided, use the embedded one
 		_, err := toml.DecodeFS(embedFs, "gitleaks.toml", &gitleaksCfg)
 		if err != nil {
 			return nil, err
 		}
 	} else {
-		_, err := toml.DecodeFile(args.GitLeaksConfig, &gitleaksCfg)
+		// If a config file is provided, use that
+		_, err := toml.DecodeFile(args.GitleaksConfig, &gitleaksCfg)
 		if err != nil {
 			return nil, err
 		}
 	}
-	c.gitLeaksConfig = gitleaksCfg
-	// Compiling regexes
+
+	// Compile regexes
 	for _, rule := range gitleaksCfg.Rules {
+		// If specific secret types are provided, only include rules that match the types
 		if args.Types != nil && len(args.Types) > 0 {
 			var found bool
 			for _, t := range args.Types {
-				if strings.HasPrefix(strings.ToLower(rule.ID), strings.ToLower(t+"-")) {
+				if strings.HasPrefix(strings.ToLower(rule.ID), strings.ToLower(t)) {
 					found = true
 					continue
 				}
@@ -159,8 +162,11 @@ func (c *Component) Run(ctx context.Context) error {
 			level.Info(c.opts.Logger).Log("receiver", c.opts.ID, "incoming entry", entry.Line, "labels", entry.Labels.String())
 
 			for _, r := range c.Rules {
-				s := r.regex.ReplaceAllString(entry.Line, "<REDACTED-SECRET:"+r.name+">")
-				entry.Line = s
+				var redactWith = "<REDACTED-SECRET:" + r.name + ">"
+				if c.args.RedactWith != "" {
+					redactWith = strings.ReplaceAll(c.args.RedactWith, "$SECRET_NAME", r.name)
+				}
+				entry.Line = r.regex.ReplaceAllString(entry.Line, redactWith)
 			}
 
 			level.Info(c.opts.Logger).Log("receiver", c.opts.ID, "outgoing entry", entry.Line, "labels", entry.Labels.String())
