@@ -14,3 +14,4 @@ This line contains a private key -----BEGIN PRIVATE KEY-----MIIBIjANBgkqhkiG9w0B
 This line contains a Vault batch token HVB.XfR-lakvzTaxIjGTeenaPR54aGAF9NMWVoK4EEKbaAV3Pcrn7UYbGaTkaXq7h1oCu85XKVe9kGq0HogGHFI6a3a1-l5tU6eRkloIxljQ1Xekt_WoJx6jZLi-ItR2hDGu_W5-sjTooN and should be redacted.
 This line contains a Vault service token HVS.vPaSQ0waQikazz2t9zYrZRsmqX6chCpaBw9602qj_aZabx6StK5rQ1sNZmb2z3PP4kNhPFQL2oofkOKLHcZSsaE1T6 and should be redacted.
 This line contains Sentry sensitive info  sentry=bbdc7634f17d824fda3db536ebb929e5e107abcf6753920caf9e772b22262e63 and should be redacted.
+This line contains a generic token. token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9 and should be redacted.
