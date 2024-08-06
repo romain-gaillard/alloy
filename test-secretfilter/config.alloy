@@ -1,0 +1,23 @@
+
+local.file_match "local_dummy_logs" {
+  path_targets = [{"__path__" = "/tmp/alloy/*.log"}]
+}
+
+loki.source.file  "local_dummy_logs" {
+    targets = local.file_match.local_dummy_logs.targets
+    forward_to = [loki.secretfilter.secret_filter.receiver]
+}
+
+loki.secretfilter "secret_filter" {
+    forward_to = [loki.process.process_logs.receiver]
+}
+
+loki.process "process_logs" {
+    forward_to = [loki.write.local_loki.receiver]
+}
+
+loki.write "local_loki" {
+    endpoint {
+        url = "http://loki:3100/loki/api/v1/push"
+    }
+}

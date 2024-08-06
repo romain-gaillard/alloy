@@ -1,0 +1,73 @@
+x-labels: &secret-filtering-alloy-labels "com.grafana.secret-filtering-alloy.env=development"
+
+networks:
+  loki:
+
+volumes:
+  alloy-logs:
+    labels:
+      - *secret-filtering-alloy-labels
+
+services:
+  loki:
+    image: grafana/loki:3.1.0
+    ports:
+      - "3100:3100"
+    command: -config.file=/etc/loki/local-config.yaml
+    networks:
+      - loki
+    labels:
+      - *secret-filtering-alloy-labels
+  grafana:
+    environment:
+      - GF_PATHS_PROVISIONING=/etc/grafana/provisioning
+      - GF_AUTH_ANONYMOUS_ENABLED=true
+      - GF_AUTH_ANONYMOUS_ORG_ROLE=Admin
+    entrypoint:
+      - sh
+      - -euc
+      - |
+        mkdir -p /etc/grafana/provisioning/datasources
+        cat <<EOF > /etc/grafana/provisioning/datasources/ds.yaml
+        apiVersion: 1
+        datasources:
+        - name: Loki
+          type: loki
+          access: proxy
+          orgId: 1
+          url: http://loki:3100
+          basicAuth: false
+          isDefault: false
+          version: 1
+          editable: false
+        EOF
+        /run.sh
+    image: grafana/grafana:11.0.0
+    ports:
+      - "3000:3000"
+    networks:
+      - loki
+    labels:
+      - *secret-filtering-alloy-labels
+
+  alloy:
+    build:
+      context: ../
+    ports:
+      - "12347:12345"
+      - "12348:12348"
+      - "6832:6832"
+      - "55679:55679"
+    volumes:
+      - "./config.alloy:/etc/alloy/config.alloy"
+      - "./logs/:/tmp/alloy/"
+    command: [
+      "run",
+      "--server.http.listen-addr=0.0.0.0:12345",
+      "--stability.level=public-preview",
+      "/etc/alloy/config.alloy",
+    ]
+    networks:
+      - loki
+    labels:
+      - *secret-filtering-alloy-labels
