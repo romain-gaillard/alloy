@@ -42,6 +42,7 @@ type Arguments struct {
 	GitleaksConfig string              `alloy:"gitleaks_config,attr,optional"`
 	Types          []string            `alloy:"types,attr,optional"`
 	RedactWith     string              `alloy:"redact_with,attr,optional"`
+	ExcludeGeneric bool                `alloy:"exclude_generic,attr,optional"`
 }
 
 // Exports holds the values exported by the secretfilter component.
@@ -115,6 +116,10 @@ func New(o component.Options, args Arguments) (*Component, error) {
 
 	// Compile regexes
 	for _, rule := range gitleaksCfg.Rules {
+		// If the users wants to exclude the generic API key rule, skip it
+		if args.ExcludeGeneric && strings.ToLower(rule.ID) == "generic-api-key" {
+			continue
+		}
 		// If specific secret types are provided, only include rules that match the types
 		if args.Types != nil && len(args.Types) > 0 {
 			var found bool
@@ -159,17 +164,27 @@ func (c *Component) Run(ctx context.Context) error {
 		case <-ctx.Done():
 			return nil
 		case entry := <-c.receiver.Chan():
-			level.Info(c.opts.Logger).Log("receiver", c.opts.ID, "incoming entry", entry.Line, "labels", entry.Labels.String())
-
 			for _, r := range c.Rules {
 				var redactWith = "<REDACTED-SECRET:" + r.name + ">"
 				if c.args.RedactWith != "" {
 					redactWith = strings.ReplaceAll(c.args.RedactWith, "$SECRET_NAME", r.name)
 				}
-				entry.Line = r.regex.ReplaceAllString(entry.Line, redactWith)
+
+				// There seems to be two kinds of regexes in the gitleaks.toml file
+				// 1. Regexes that only match the secret (with no submatches). E.g. (?:A3T[A-Z0-9]|AKIA|ASIA|ABIA|ACCA)[A-Z0-9]{16}
+				// 2. Regexes that match the secret and some context (or delimiters) and have one submatch (the secret itself). E.g. (?i)\b(AIza[0-9A-Za-z\\-_]{35})(?:['|\"|\n|\r|\s|\x60|;]|$)
+				//
+				// For the first case, we can replace the entire match with the redaction string.
+				// For the second case, we can replace the first submatch with the redaction string (to avoid redacting delimiters).
+				for _, occ := range r.regex.FindAllStringSubmatch(entry.Line, -1) {
+					if len(occ) == 2 {
+						entry.Line = strings.ReplaceAll(entry.Line, occ[1], redactWith)
+					} else {
+						entry.Line = strings.ReplaceAll(entry.Line, occ[0], redactWith)
+					}
+				}
 			}
 
-			level.Info(c.opts.Logger).Log("receiver", c.opts.ID, "outgoing entry", entry.Line, "labels", entry.Labels.String())
 			for _, f := range c.fanout {
 				select {
 				case <-ctx.Done():
