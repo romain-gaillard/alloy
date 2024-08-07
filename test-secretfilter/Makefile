@@ -18,7 +18,6 @@ reset/env: down
 .PHONY: download-model
 download-model:
 ifeq (,$(wildcard ./model/spago_model.bin))
-	curl -L "https://github.com/romain-gaillard/alloy/releases/download/model/model.zip" > model/output.zip
-	unzip model/output.zip -d ./model/
-	rm model/output.zip
+	echo "Please put the model files in the model directory"
+	exit 1
 endif
