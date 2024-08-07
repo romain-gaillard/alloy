@@ -18,6 +18,6 @@ reset/env: down
 .PHONY: download-model
 download-model:
 ifeq (,$(wildcard ./model/spago_model.bin))
-	echo "Please put the model files in the model directory"
+	echo "Please put the model files (spago_model.bin, config.json, merges.txt, vocab.json) in the model directory"
 	exit 1
 endif
