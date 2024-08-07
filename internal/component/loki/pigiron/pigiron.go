@@ -34,7 +34,7 @@ func init() {
 	})
 }
 
-// Arguments holds values which are used to configure the secretfilter
+// Arguments holds values which are used to configure the pigiron
 // component.
 type Arguments struct {
 	ForwardTo  []loki.LogsReceiver `alloy:"forward_to,attr"`
@@ -42,7 +42,7 @@ type Arguments struct {
 	RedactWith string              `alloy:"redact_with,attr,optional"`
 }
 
-// Exports holds the values exported by the secretfilter component.
+// Exports holds the values exported by the pigiron component.
 type Exports struct {
 	Receiver loki.LogsReceiver `alloy:"receiver,attr"`
 }
@@ -116,7 +116,7 @@ func (c *Component) tokensToIDs(vocab *vocabulary.Vocabulary, tokens []string) [
 	return IDs
 }
 
-// New creates a new secretfilter component.
+// New creates a new pigiron component.
 func New(o component.Options, args Arguments) (*Component, error) {
 	c := &Component{
 		opts:     o,
