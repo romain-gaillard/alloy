@@ -2,7 +2,9 @@ package secretfilter
 
 import (
 	"context"
+	"crypto/sha1"
 	"embed"
+	"fmt"
 	"regexp"
 	"strings"
 	"sync"
@@ -18,8 +20,9 @@ import (
 var embedFs embed.FS
 
 type Rule struct {
-	name  string
-	regex *regexp.Regexp
+	name        string
+	regex       *regexp.Regexp
+	secretGroup int
 }
 
 func init() {
@@ -39,13 +42,13 @@ func init() {
 // component.
 type Arguments struct {
 	ForwardTo      []loki.LogsReceiver `alloy:"forward_to,attr"`
-	GitleaksConfig string              `alloy:"gitleaks_config,attr,optional"`
-	Types          []string            `alloy:"types,attr,optional"`
-	RedactWith     string              `alloy:"redact_with,attr,optional"`
-	ExcludeGeneric bool                `alloy:"exclude_generic,attr,optional"`
+	GitleaksConfig string              `alloy:"gitleaks_config,attr,optional"` // Path to the custom gitleaks.toml file. If empty, the embedded one is used
+	Types          []string            `alloy:"types,attr,optional"`           // Types of secret to look for (e.g. "aws", "gcp", ...). If empty, all types are included
+	RedactWith     string              `alloy:"redact_with,attr,optional"`     // Redact the secret with this string. Use $SECRET_NAME and $SECRET_HASH to include the secret name and hash
+	ExcludeGeneric bool                `alloy:"exclude_generic,attr,optional"` // Exclude the generic API key rule (default: false)
 }
 
-// Exports holds the values exported by the secretfilter component.
+// Exports holds the values exported by the loki.secretfilter component.
 type Exports struct {
 	Receiver loki.LogsReceiver `alloy:"receiver,attr"`
 }
@@ -62,7 +65,7 @@ var (
 	_ component.Component = (*Component)(nil)
 )
 
-// Component implements the loki.source.file component.
+// Component implements the loki.secretfilter component.
 type Component struct {
 	opts component.Options
 
@@ -73,7 +76,7 @@ type Component struct {
 	Rules    []Rule
 }
 
-// Not exhaustive. See https://github.com/gitleaks/gitleaks/blob/master/config/config.go
+// Non-exhaustive representation. See https://github.com/gitleaks/gitleaks/blob/master/config/config.go
 type GitLeaksConfig struct {
 	AllowList struct {
 		Description string
@@ -84,6 +87,7 @@ type GitLeaksConfig struct {
 		Description string
 		Regex       string
 		Keywords    []string
+		SecretGroup int
 
 		Allowlist struct {
 			StopWords []string
@@ -91,7 +95,7 @@ type GitLeaksConfig struct {
 	}
 }
 
-// New creates a new secretfilter component.
+// New creates a new loki.secretfilter component.
 func New(o component.Options, args Arguments) (*Component, error) {
 	c := &Component{
 		opts:     o,
@@ -101,7 +105,7 @@ func New(o component.Options, args Arguments) (*Component, error) {
 	// Parse GitLeaks configuration
 	var gitleaksCfg GitLeaksConfig
 	if args.GitleaksConfig == "" {
-		// If no config file provided, use the embedded one
+		// If no config file is explicitely provided, use the embedded one
 		_, err := toml.DecodeFS(embedFs, "gitleaks.toml", &gitleaksCfg)
 		if err != nil {
 			return nil, err
@@ -116,7 +120,7 @@ func New(o component.Options, args Arguments) (*Component, error) {
 
 	// Compile regexes
 	for _, rule := range gitleaksCfg.Rules {
-		// If the users wants to exclude the generic API key rule, skip it
+		// If we're asked to skip the generic API key rule, don't compile it
 		if args.ExcludeGeneric && strings.ToLower(rule.ID) == "generic-api-key" {
 			continue
 		}
@@ -130,17 +134,19 @@ func New(o component.Options, args Arguments) (*Component, error) {
 				}
 			}
 			if !found {
-				// Skip that rule if it doesn't match any of the secret types
+				// Skip that rule if it doesn't match any of the secret types in the config
 				continue
 			}
 		}
 		re, err := regexp.Compile(rule.Regex)
 		if err != nil {
+			level.Error(o.Logger).Log("msg", "error compiling regex", "error", err)
 			return nil, err
 		}
 		c.Rules = append(c.Rules, Rule{
-			name:  rule.ID,
-			regex: re,
+			name:        rule.ID,
+			regex:       re,
+			secretGroup: rule.SecretGroup,
 		})
 	}
 	level.Info(c.opts.Logger).Log("Compiled regexes for secret detection", len(c.Rules))
@@ -165,23 +171,37 @@ func (c *Component) Run(ctx context.Context) error {
 			return nil
 		case entry := <-c.receiver.Chan():
 			for _, r := range c.Rules {
-				var redactWith = "<REDACTED-SECRET:" + r.name + ">"
-				if c.args.RedactWith != "" {
-					redactWith = strings.ReplaceAll(c.args.RedactWith, "$SECRET_NAME", r.name)
-				}
-
+				// To find the secret within the text captured by the regex (and avoid being too greedy), we can use the 'secretGroup' field in the gitleaks.toml file.
+				// But it's rare for regexes to have this field set, so we can use a simple heuristic in other cases.
+				//
 				// There seems to be two kinds of regexes in the gitleaks.toml file
 				// 1. Regexes that only match the secret (with no submatches). E.g. (?:A3T[A-Z0-9]|AKIA|ASIA|ABIA|ACCA)[A-Z0-9]{16}
 				// 2. Regexes that match the secret and some context (or delimiters) and have one submatch (the secret itself). E.g. (?i)\b(AIza[0-9A-Za-z\\-_]{35})(?:['|\"|\n|\r|\s|\x60|;]|$)
 				//
 				// For the first case, we can replace the entire match with the redaction string.
-				// For the second case, we can replace the first submatch with the redaction string (to avoid redacting delimiters).
+				// For the second case, we can replace the first submatch with the redaction string (to avoid redacting something else than the secret such as delimiters).
 				for _, occ := range r.regex.FindAllStringSubmatch(entry.Line, -1) {
-					if len(occ) == 2 {
-						entry.Line = strings.ReplaceAll(entry.Line, occ[1], redactWith)
+					// By default, the secret is the full match group
+					secret := occ[0]
+
+					// If a secretGroup is provided, use that instead
+					if r.secretGroup > 0 && len(occ) > r.secretGroup {
+						secret = occ[r.secretGroup]
 					} else {
-						entry.Line = strings.ReplaceAll(entry.Line, occ[0], redactWith)
+						// If not and there are two submatches, the first one is the secret
+						if len(occ) == 2 {
+							secret = occ[1]
+						}
 					}
+
+					var redactWith = "<REDACTED-SECRET:" + r.name + ">"
+					if c.args.RedactWith != "" {
+						redactWith = c.args.RedactWith
+						redactWith = strings.ReplaceAll(redactWith, "$SECRET_NAME", r.name)
+						redactWith = strings.ReplaceAll(redactWith, "$SECRET_HASH", hashSecret(secret))
+					}
+
+					entry.Line = strings.ReplaceAll(entry.Line, secret, redactWith)
 				}
 			}
 
@@ -194,6 +214,12 @@ func (c *Component) Run(ctx context.Context) error {
 			}
 		}
 	}
+}
+
+func hashSecret(secret string) string {
+	hasher := sha1.New()
+	hasher.Write([]byte(secret))
+	return fmt.Sprintf("%x", hasher.Sum(nil))
 }
 
 // Update implements component.Component.
