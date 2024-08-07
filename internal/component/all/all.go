@@ -2,45 +2,46 @@
 package all
 
 import (
-	_ "github.com/grafana/alloy/internal/component/beyla/ebpf"                               // Import beyla.ebpf
-	_ "github.com/grafana/alloy/internal/component/discovery/aws"                            // Import discovery.aws.ec2 and discovery.aws.lightsail
-	_ "github.com/grafana/alloy/internal/component/discovery/azure"                          // Import discovery.azure
-	_ "github.com/grafana/alloy/internal/component/discovery/consul"                         // Import discovery.consul
-	_ "github.com/grafana/alloy/internal/component/discovery/consulagent"                    // Import discovery.consulagent
-	_ "github.com/grafana/alloy/internal/component/discovery/digitalocean"                   // Import discovery.digitalocean
-	_ "github.com/grafana/alloy/internal/component/discovery/dns"                            // Import discovery.dns
-	_ "github.com/grafana/alloy/internal/component/discovery/docker"                         // Import discovery.docker
-	_ "github.com/grafana/alloy/internal/component/discovery/dockerswarm"                    // Import discovery.dockerswarm
-	_ "github.com/grafana/alloy/internal/component/discovery/eureka"                         // Import discovery.eureka
-	_ "github.com/grafana/alloy/internal/component/discovery/file"                           // Import discovery.file
-	_ "github.com/grafana/alloy/internal/component/discovery/gce"                            // Import discovery.gce
-	_ "github.com/grafana/alloy/internal/component/discovery/hetzner"                        // Import discovery.hetzner
-	_ "github.com/grafana/alloy/internal/component/discovery/http"                           // Import discovery.http
-	_ "github.com/grafana/alloy/internal/component/discovery/ionos"                          // Import discovery.ionos
-	_ "github.com/grafana/alloy/internal/component/discovery/kubelet"                        // Import discovery.kubelet
-	_ "github.com/grafana/alloy/internal/component/discovery/kubernetes"                     // Import discovery.kubernetes
-	_ "github.com/grafana/alloy/internal/component/discovery/kuma"                           // Import discovery.kuma
-	_ "github.com/grafana/alloy/internal/component/discovery/linode"                         // Import discovery.linode
-	_ "github.com/grafana/alloy/internal/component/discovery/marathon"                       // Import discovery.marathon
-	_ "github.com/grafana/alloy/internal/component/discovery/nerve"                          // Import discovery.nerve
-	_ "github.com/grafana/alloy/internal/component/discovery/nomad"                          // Import discovery.nomad
-	_ "github.com/grafana/alloy/internal/component/discovery/openstack"                      // Import discovery.openstack
-	_ "github.com/grafana/alloy/internal/component/discovery/ovhcloud"                       // Import discovery.ovhcloud
-	_ "github.com/grafana/alloy/internal/component/discovery/process"                        // Import discovery.process
-	_ "github.com/grafana/alloy/internal/component/discovery/puppetdb"                       // Import discovery.puppetdb
-	_ "github.com/grafana/alloy/internal/component/discovery/relabel"                        // Import discovery.relabel
-	_ "github.com/grafana/alloy/internal/component/discovery/scaleway"                       // Import discovery.scaleway
-	_ "github.com/grafana/alloy/internal/component/discovery/serverset"                      // Import discovery.serverset
-	_ "github.com/grafana/alloy/internal/component/discovery/triton"                         // Import discovery.triton
-	_ "github.com/grafana/alloy/internal/component/discovery/uyuni"                          // Import discovery.uyuni
-	_ "github.com/grafana/alloy/internal/component/faro/receiver"                            // Import faro.receiver
-	_ "github.com/grafana/alloy/internal/component/local/file"                               // Import local.file
-	_ "github.com/grafana/alloy/internal/component/local/file_match"                         // Import local.file_match
-	_ "github.com/grafana/alloy/internal/component/loki/echo"                                // Import loki.echo
-	_ "github.com/grafana/alloy/internal/component/loki/process"                             // Import loki.process
-	_ "github.com/grafana/alloy/internal/component/loki/relabel"                             // Import loki.relabel
-	_ "github.com/grafana/alloy/internal/component/loki/rules/kubernetes"                    // Import loki.rules.kubernetes
-	_ "github.com/grafana/alloy/internal/component/loki/secretfilter"                        // Import loki.secretfilter
+	_ "github.com/grafana/alloy/internal/component/beyla/ebpf"             // Import beyla.ebpf
+	_ "github.com/grafana/alloy/internal/component/discovery/aws"          // Import discovery.aws.ec2 and discovery.aws.lightsail
+	_ "github.com/grafana/alloy/internal/component/discovery/azure"        // Import discovery.azure
+	_ "github.com/grafana/alloy/internal/component/discovery/consul"       // Import discovery.consul
+	_ "github.com/grafana/alloy/internal/component/discovery/consulagent"  // Import discovery.consulagent
+	_ "github.com/grafana/alloy/internal/component/discovery/digitalocean" // Import discovery.digitalocean
+	_ "github.com/grafana/alloy/internal/component/discovery/dns"          // Import discovery.dns
+	_ "github.com/grafana/alloy/internal/component/discovery/docker"       // Import discovery.docker
+	_ "github.com/grafana/alloy/internal/component/discovery/dockerswarm"  // Import discovery.dockerswarm
+	_ "github.com/grafana/alloy/internal/component/discovery/eureka"       // Import discovery.eureka
+	_ "github.com/grafana/alloy/internal/component/discovery/file"         // Import discovery.file
+	_ "github.com/grafana/alloy/internal/component/discovery/gce"          // Import discovery.gce
+	_ "github.com/grafana/alloy/internal/component/discovery/hetzner"      // Import discovery.hetzner
+	_ "github.com/grafana/alloy/internal/component/discovery/http"         // Import discovery.http
+	_ "github.com/grafana/alloy/internal/component/discovery/ionos"        // Import discovery.ionos
+	_ "github.com/grafana/alloy/internal/component/discovery/kubelet"      // Import discovery.kubelet
+	_ "github.com/grafana/alloy/internal/component/discovery/kubernetes"   // Import discovery.kubernetes
+	_ "github.com/grafana/alloy/internal/component/discovery/kuma"         // Import discovery.kuma
+	_ "github.com/grafana/alloy/internal/component/discovery/linode"       // Import discovery.linode
+	_ "github.com/grafana/alloy/internal/component/discovery/marathon"     // Import discovery.marathon
+	_ "github.com/grafana/alloy/internal/component/discovery/nerve"        // Import discovery.nerve
+	_ "github.com/grafana/alloy/internal/component/discovery/nomad"        // Import discovery.nomad
+	_ "github.com/grafana/alloy/internal/component/discovery/openstack"    // Import discovery.openstack
+	_ "github.com/grafana/alloy/internal/component/discovery/ovhcloud"     // Import discovery.ovhcloud
+	_ "github.com/grafana/alloy/internal/component/discovery/process"      // Import discovery.process
+	_ "github.com/grafana/alloy/internal/component/discovery/puppetdb"     // Import discovery.puppetdb
+	_ "github.com/grafana/alloy/internal/component/discovery/relabel"      // Import discovery.relabel
+	_ "github.com/grafana/alloy/internal/component/discovery/scaleway"     // Import discovery.scaleway
+	_ "github.com/grafana/alloy/internal/component/discovery/serverset"    // Import discovery.serverset
+	_ "github.com/grafana/alloy/internal/component/discovery/triton"       // Import discovery.triton
+	_ "github.com/grafana/alloy/internal/component/discovery/uyuni"        // Import discovery.uyuni
+	_ "github.com/grafana/alloy/internal/component/faro/receiver"          // Import faro.receiver
+	_ "github.com/grafana/alloy/internal/component/local/file"             // Import local.file
+	_ "github.com/grafana/alloy/internal/component/local/file_match"       // Import local.file_match
+	_ "github.com/grafana/alloy/internal/component/loki/echo"              // Import loki.echo
+	_ "github.com/grafana/alloy/internal/component/loki/pigiron"           // Import loki.pigiron
+	_ "github.com/grafana/alloy/internal/component/loki/process"           // Import loki.process
+	_ "github.com/grafana/alloy/internal/component/loki/relabel"           // Import loki.relabel
+	_ "github.com/grafana/alloy/internal/component/loki/rules/kubernetes"  // Import loki.rules.kubernetes
+	_ "github.com/grafana/alloy/internal/component/loki/secretfilter"
 	_ "github.com/grafana/alloy/internal/component/loki/source/api"                          // Import loki.source.api
 	_ "github.com/grafana/alloy/internal/component/loki/source/aws_firehose"                 // Import loki.source.awsfirehose
 	_ "github.com/grafana/alloy/internal/component/loki/source/azure_event_hubs"             // Import loki.source.azure_event_hubs

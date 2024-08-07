@@ -61,7 +61,12 @@ services:
     volumes:
       - "./config.alloy:/etc/alloy/config.alloy"
       - "./gitleaks.toml:/etc/alloy/gitleaks.toml"
-      - "./logs/:/tmp/alloy/"
+      - "./logs/:/tmp/alloy/logs"
+      - "./logs-ai/:/tmp/alloy/logs-ai"
+      - "./model/spago_model.bin:/etc/alloy/model/spago_model.bin"
+      - "./model/vocab.json:/etc/alloy/model/vocab.json"
+      - "./model/config.json:/etc/alloy/model/config.json"
+      - "./model/merges.txt:/etc/alloy/model/merges.txt"
     command: [
       "run",
       "--server.http.listen-addr=0.0.0.0:12345",
