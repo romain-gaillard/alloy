@@ -19,10 +19,17 @@ import (
 //go:embed gitleaks.toml
 var embedFs embed.FS
 
+type AllowRule struct {
+	Regex  *regexp.Regexp
+	Source string
+}
+
 type Rule struct {
 	name        string
 	regex       *regexp.Regexp
 	secretGroup int
+	description string
+	allowlist   []AllowRule
 }
 
 func init() {
@@ -46,6 +53,7 @@ type Arguments struct {
 	Types          []string            `alloy:"types,attr,optional"`           // Types of secret to look for (e.g. "aws", "gcp", ...). If empty, all types are included
 	RedactWith     string              `alloy:"redact_with,attr,optional"`     // Redact the secret with this string. Use $SECRET_NAME and $SECRET_HASH to include the secret name and hash
 	ExcludeGeneric bool                `alloy:"exclude_generic,attr,optional"` // Exclude the generic API key rule (default: false)
+	AllowList      []string            `alloy:"allowlist,attr,optional"`       // List of regexes to allowlist (on top of what's in the Gitleaks config)
 }
 
 // Exports holds the values exported by the loki.secretfilter component.
@@ -69,11 +77,12 @@ var (
 type Component struct {
 	opts component.Options
 
-	mut      sync.RWMutex
-	args     Arguments
-	receiver loki.LogsReceiver
-	fanout   []loki.LogsReceiver
-	Rules    []Rule
+	mut       sync.RWMutex
+	args      Arguments
+	receiver  loki.LogsReceiver
+	fanout    []loki.LogsReceiver
+	Rules     []Rule
+	AllowList []AllowRule
 }
 
 // Non-exhaustive representation. See https://github.com/gitleaks/gitleaks/blob/master/config/config.go
@@ -81,6 +90,7 @@ type GitLeaksConfig struct {
 	AllowList struct {
 		Description string
 		Paths       []string
+		Regexes     []string
 	}
 	Rules []struct {
 		ID          string
@@ -91,6 +101,7 @@ type GitLeaksConfig struct {
 
 		Allowlist struct {
 			StopWords []string
+			Regexes   []string
 		}
 	}
 }
@@ -142,10 +153,23 @@ func New(o component.Options, args Arguments) (*Component, error) {
 			return nil, err
 		}
 
+		// Compile rule-specific allowlist regexes
+		var allowlist []AllowRule
+		for _, r := range rule.Allowlist.Regexes {
+			re, err := regexp.Compile(r)
+			if err != nil {
+				level.Error(o.Logger).Log("msg", "error compiling allowlist regex", "error", err)
+				return nil, err
+			}
+			allowlist = append(allowlist, AllowRule{Regex: re, Source: fmt.Sprintf("rule %s", rule.ID)})
+		}
+
 		newRule := Rule{
 			name:        rule.ID,
 			regex:       re,
 			secretGroup: rule.SecretGroup,
+			description: rule.Description,
+			allowlist:   allowlist,
 		}
 
 		// We treat the generic API key rule separately as we want to add it in last position
@@ -155,6 +179,26 @@ func New(o component.Options, args Arguments) (*Component, error) {
 		} else {
 			c.Rules = append(c.Rules, newRule)
 		}
+	}
+
+	// Compiling global allowlist regexes
+	// From the Gitleaks config
+	for _, r := range gitleaksCfg.AllowList.Regexes {
+		re, err := regexp.Compile(r)
+		if err != nil {
+			level.Error(o.Logger).Log("msg", "error compiling allowlist regex", "error", err)
+			return nil, err
+		}
+		c.AllowList = append(c.AllowList, AllowRule{Regex: re, Source: "gitleaks config"})
+	}
+	// From the arguments
+	for _, r := range args.AllowList {
+		re, err := regexp.Compile(r)
+		if err != nil {
+			level.Error(o.Logger).Log("msg", "error compiling allowlist regex", "error", err)
+			return nil, err
+		}
+		c.AllowList = append(c.AllowList, AllowRule{Regex: re, Source: "alloy config"})
 	}
 
 	// Add the generic API key rule last if needed
@@ -205,6 +249,30 @@ func (c *Component) Run(ctx context.Context) error {
 						if len(occ) == 2 {
 							secret = occ[1]
 						}
+					}
+
+					// Check if the secret is in the allowlist
+					var allowRule *AllowRule = nil
+					// First check the rule-specific allowlist
+					for _, a := range r.allowlist {
+						if a.Regex.MatchString(secret) {
+							allowRule = &a
+							break
+						}
+					}
+					// Then check the global allowlist
+					if allowRule == nil {
+						for _, a := range c.AllowList {
+							if a.Regex.MatchString(secret) {
+								allowRule = &a
+								break
+							}
+						}
+					}
+					// If allowed, skip redaction
+					if allowRule != nil {
+						level.Info(c.opts.Logger).Log("msg", "secret in allowlist", "rule", r.name, "source", allowRule.Source)
+						continue
 					}
 
 					var redactWith = "<REDACTED-SECRET:" + r.name + ">"

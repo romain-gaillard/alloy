@@ -21,6 +21,7 @@ loki.secretfilter "secret_filter" {
     // Uncomment the next line to only look for specific secrets. By default, looks at every secret type known by Gitleaks.
     // types = ["aws", "gcp"]
     redact_with = "<ALLOY-REDACTED-SECRET:$SECRET_NAME:$SECRET_HASH>" // Variables that can be used are $SECRET_NAME and $SECRET_HASH
+    allowlist = ["943115731925-6165549194881"]
 }
 
 loki.pigiron "secret_filter" {
