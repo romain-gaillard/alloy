@@ -4,6 +4,7 @@ import (
 	"context"
 	"path/filepath"
 	"sync"
+	"time"
 
 	"github.com/grafana/alloy/internal/component"
 	"github.com/grafana/alloy/internal/component/common/loki"
@@ -17,6 +18,7 @@ import (
 	"github.com/nlpodyssey/cybertron/pkg/tokenizers"
 	"github.com/nlpodyssey/cybertron/pkg/tokenizers/bpetokenizer"
 	"github.com/nlpodyssey/cybertron/pkg/vocabulary"
+	voc2 "github.com/nlpodyssey/gotokenizers/vocabulary"
 	"github.com/nlpodyssey/spago/mat"
 	"github.com/nlpodyssey/spago/nn"
 )
@@ -24,7 +26,7 @@ import (
 func init() {
 	component.Register(component.Registration{
 		Name:      "loki.pigiron",
-		Stability: featuregate.StabilityGenerallyAvailable, // To make it easy to test for now. Change to featuregate.StabilityExperimental
+		Stability: featuregate.StabilityExperimental,
 		Args:      Arguments{},
 		Exports:   Exports{},
 
@@ -34,15 +36,14 @@ func init() {
 	})
 }
 
-// Arguments holds values which are used to configure the pigiron
+// Arguments holds values which are used to configure the loki.pigiron
 // component.
 type Arguments struct {
-	ForwardTo  []loki.LogsReceiver `alloy:"forward_to,attr"`
-	ModelPath  string              `alloy:"model_path,attr"`
-	RedactWith string              `alloy:"redact_with,attr,optional"`
+	ForwardTo []loki.LogsReceiver `alloy:"forward_to,attr"`
+	ModelPath string              `alloy:"model_path,attr"`
 }
 
-// Exports holds the values exported by the pigiron component.
+// Exports holds the values exported by the loki.pigiron component.
 type Exports struct {
 	Receiver loki.LogsReceiver `alloy:"receiver,attr"`
 }
@@ -59,7 +60,7 @@ var (
 	_ component.Component = (*Component)(nil)
 )
 
-// Component implements the loki.source.file component.
+// Component implements the loki.pigiron component.
 type Component struct {
 	opts component.Options
 
@@ -70,24 +71,6 @@ type Component struct {
 	mlLabels []string
 	model    *bert.ModelForTokenClassification
 	bpe      *bpetokenizer.BPETokenizer
-}
-
-// Not exhaustive. See https://github.com/gitleaks/gitleaks/blob/master/config/config.go
-type GitLeaksConfig struct {
-	AllowList struct {
-		Description string
-		Paths       []string
-	}
-	Rules []struct {
-		ID          string
-		Description string
-		Regex       string
-		Keywords    []string
-
-		Allowlist struct {
-			StopWords []string
-		}
-	}
 }
 
 func (c *Component) ID2Label(value map[string]string) []string {
@@ -108,15 +91,18 @@ func (c *Component) getBestClass(logits mat.Tensor, Labels []string) (string, fl
 	return Labels[argmax], probs.At(argmax).Item().F64()
 }
 
-func (c *Component) tokensToIDs(vocab *vocabulary.Vocabulary, tokens []string) []int {
-	IDs := make([]int, len(tokens))
-	for i, token := range tokens {
-		IDs[i] = vocab.MustID(token)
+func (c *Component) convertVocab(vocab *voc2.Vocabulary) *vocabulary.Vocabulary {
+	vocabList := make([]string, vocab.Size())
+	for i := 0; i < vocab.Size(); i++ {
+		str, ok := vocab.GetString(i)
+		if ok {
+			vocabList[i] = str
+		}
 	}
-	return IDs
+	return vocabulary.New(vocabList)
 }
 
-// New creates a new pigiron component.
+// New creates a new loki.pigiron component.
 func New(o component.Options, args Arguments) (*Component, error) {
 	c := &Component{
 		opts:     o,
@@ -144,6 +130,14 @@ func New(o component.Options, args Arguments) (*Component, error) {
 		level.Error(c.opts.Logger).Log("msg", "error loading model", "error", err)
 		return nil, err
 	}
+
+	// Overwrite vocabulary from model file with vocabulary from JSON file
+	newVocab, err := voc2.FromJSONFile(filepath.Join(args.ModelPath, "vocab.json"))
+	if err != nil {
+		level.Error(c.opts.Logger).Log("msg", "error loading vocabulary", "error", err)
+		return nil, err
+	}
+	model.Bert.Embeddings.Vocab = c.convertVocab(newVocab)
 	c.model = model
 
 	// Call to Update() once at the start.
@@ -165,15 +159,13 @@ func (c *Component) Run(ctx context.Context) error {
 		case <-ctx.Done():
 			return nil
 		case entry := <-c.receiver.Chan():
-			level.Info(c.opts.Logger).Log("receiver", c.opts.ID, "incoming entry", entry.Line, "labels", entry.Labels.String())
-
 			text := entry.Line
+			start := time.Now()
 
 			tokenized, err := c.bpe.Tokenize(text)
 			if err != nil {
 				level.Error(c.opts.Logger).Log("msg", "error tokenizing text", "error", err)
 			}
-			level.Debug(c.opts.Logger).Log("msg", "tokens IDs", c.tokensToIDs(c.model.Bert.Embeddings.Vocab, tokenizers.GetStrings(tokenized)))
 
 			logits := c.model.Classify(tokenizers.GetStrings(tokenized))
 			tokens := make([]tokenclassification.Token, 0, len(tokenized))
@@ -202,8 +194,8 @@ func (c *Component) Run(ctx context.Context) error {
 			}
 
 			entry.Line = outputText
+			level.Info(c.opts.Logger).Log("msg", "time taken for model to process", "seconds", time.Since(start).Seconds())
 
-			level.Info(c.opts.Logger).Log("receiver", c.opts.ID, "outgoing entry", entry.Line, "labels", entry.Labels.String())
 			for _, f := range c.fanout {
 				select {
 				case <-ctx.Done():
