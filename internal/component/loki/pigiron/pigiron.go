@@ -17,6 +17,7 @@ import (
 	"github.com/nlpodyssey/cybertron/pkg/tokenizers"
 	"github.com/nlpodyssey/cybertron/pkg/tokenizers/bpetokenizer"
 	"github.com/nlpodyssey/cybertron/pkg/vocabulary"
+	voc2 "github.com/nlpodyssey/gotokenizers/vocabulary"
 	"github.com/nlpodyssey/spago/mat"
 	"github.com/nlpodyssey/spago/nn"
 )
@@ -108,12 +109,15 @@ func (c *Component) getBestClass(logits mat.Tensor, Labels []string) (string, fl
 	return Labels[argmax], probs.At(argmax).Item().F64()
 }
 
-func (c *Component) tokensToIDs(vocab *vocabulary.Vocabulary, tokens []string) []int {
-	IDs := make([]int, len(tokens))
-	for i, token := range tokens {
-		IDs[i] = vocab.MustID(token)
+func (c *Component) convertVocab(vocab *voc2.Vocabulary) *vocabulary.Vocabulary {
+	vocabList := make([]string, vocab.Size())
+	for i := 0; i < vocab.Size(); i++ {
+		str, ok := vocab.GetString(i)
+		if ok {
+			vocabList[i] = str
+		}
 	}
-	return IDs
+	return vocabulary.New(vocabList)
 }
 
 // New creates a new pigiron component.
@@ -144,6 +148,14 @@ func New(o component.Options, args Arguments) (*Component, error) {
 		level.Error(c.opts.Logger).Log("msg", "error loading model", "error", err)
 		return nil, err
 	}
+
+	// Overwrite vocabulary from model file with vocabulary from JSON file
+	newVocab, err := voc2.FromJSONFile(filepath.Join(args.ModelPath, "vocab.json"))
+	if err != nil {
+		level.Error(c.opts.Logger).Log("msg", "error loading vocabulary", "error", err)
+		return nil, err
+	}
+	model.Bert.Embeddings.Vocab = c.convertVocab(newVocab)
 	c.model = model
 
 	// Call to Update() once at the start.
@@ -173,7 +185,6 @@ func (c *Component) Run(ctx context.Context) error {
 			if err != nil {
 				level.Error(c.opts.Logger).Log("msg", "error tokenizing text", "error", err)
 			}
-			level.Debug(c.opts.Logger).Log("msg", "tokens IDs", c.tokensToIDs(c.model.Bert.Embeddings.Vocab, tokenizers.GetStrings(tokenized)))
 
 			logits := c.model.Classify(tokenizers.GetStrings(tokenized))
 			tokens := make([]tokenclassification.Token, 0, len(tokenized))
