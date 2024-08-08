@@ -28,7 +28,7 @@ type Rule struct {
 func init() {
 	component.Register(component.Registration{
 		Name:      "loki.secretfilter",
-		Stability: featuregate.StabilityGenerallyAvailable, // To make it easy to test for now. Change to featuregate.StabilityExperimental
+		Stability: featuregate.StabilityExperimental,
 		Args:      Arguments{},
 		Exports:   Exports{},
 
@@ -118,12 +118,10 @@ func New(o component.Options, args Arguments) (*Component, error) {
 		}
 	}
 
+	var ruleGenericApiKey *Rule = nil
+
 	// Compile regexes
 	for _, rule := range gitleaksCfg.Rules {
-		// If we're asked to skip the generic API key rule, don't compile it
-		if args.ExcludeGeneric && strings.ToLower(rule.ID) == "generic-api-key" {
-			continue
-		}
 		// If specific secret types are provided, only include rules that match the types
 		if args.Types != nil && len(args.Types) > 0 {
 			var found bool
@@ -143,12 +141,27 @@ func New(o component.Options, args Arguments) (*Component, error) {
 			level.Error(o.Logger).Log("msg", "error compiling regex", "error", err)
 			return nil, err
 		}
-		c.Rules = append(c.Rules, Rule{
+
+		newRule := Rule{
 			name:        rule.ID,
 			regex:       re,
 			secretGroup: rule.SecretGroup,
-		})
+		}
+
+		// We treat the generic API key rule separately as we want to add it in last position
+		// to the list of rules (so that is has the lowest priority)
+		if strings.ToLower(rule.ID) == "generic-api-key" {
+			ruleGenericApiKey = &newRule
+		} else {
+			c.Rules = append(c.Rules, newRule)
+		}
 	}
+
+	// Add the generic API key rule last if needed
+	if ruleGenericApiKey != nil && !args.ExcludeGeneric {
+		c.Rules = append(c.Rules, *ruleGenericApiKey)
+	}
+
 	level.Info(c.opts.Logger).Log("Compiled regexes for secret detection", len(c.Rules))
 
 	// Call to Update() once at the start.

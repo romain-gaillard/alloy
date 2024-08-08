@@ -25,7 +25,7 @@ import (
 func init() {
 	component.Register(component.Registration{
 		Name:      "loki.pigiron",
-		Stability: featuregate.StabilityGenerallyAvailable, // To make it easy to test for now. Change to featuregate.StabilityExperimental
+		Stability: featuregate.StabilityExperimental,
 		Args:      Arguments{},
 		Exports:   Exports{},
 
@@ -35,15 +35,14 @@ func init() {
 	})
 }
 
-// Arguments holds values which are used to configure the pigiron
+// Arguments holds values which are used to configure the loki.pigiron
 // component.
 type Arguments struct {
-	ForwardTo  []loki.LogsReceiver `alloy:"forward_to,attr"`
-	ModelPath  string              `alloy:"model_path,attr"`
-	RedactWith string              `alloy:"redact_with,attr,optional"`
+	ForwardTo []loki.LogsReceiver `alloy:"forward_to,attr"`
+	ModelPath string              `alloy:"model_path,attr"`
 }
 
-// Exports holds the values exported by the pigiron component.
+// Exports holds the values exported by the loki.pigiron component.
 type Exports struct {
 	Receiver loki.LogsReceiver `alloy:"receiver,attr"`
 }
@@ -60,7 +59,7 @@ var (
 	_ component.Component = (*Component)(nil)
 )
 
-// Component implements the loki.source.file component.
+// Component implements the loki.pigiron component.
 type Component struct {
 	opts component.Options
 
@@ -71,24 +70,6 @@ type Component struct {
 	mlLabels []string
 	model    *bert.ModelForTokenClassification
 	bpe      *bpetokenizer.BPETokenizer
-}
-
-// Not exhaustive. See https://github.com/gitleaks/gitleaks/blob/master/config/config.go
-type GitLeaksConfig struct {
-	AllowList struct {
-		Description string
-		Paths       []string
-	}
-	Rules []struct {
-		ID          string
-		Description string
-		Regex       string
-		Keywords    []string
-
-		Allowlist struct {
-			StopWords []string
-		}
-	}
 }
 
 func (c *Component) ID2Label(value map[string]string) []string {
@@ -120,7 +101,7 @@ func (c *Component) convertVocab(vocab *voc2.Vocabulary) *vocabulary.Vocabulary 
 	return vocabulary.New(vocabList)
 }
 
-// New creates a new pigiron component.
+// New creates a new loki.pigiron component.
 func New(o component.Options, args Arguments) (*Component, error) {
 	c := &Component{
 		opts:     o,
@@ -177,8 +158,6 @@ func (c *Component) Run(ctx context.Context) error {
 		case <-ctx.Done():
 			return nil
 		case entry := <-c.receiver.Chan():
-			level.Info(c.opts.Logger).Log("receiver", c.opts.ID, "incoming entry", entry.Line, "labels", entry.Labels.String())
-
 			text := entry.Line
 
 			tokenized, err := c.bpe.Tokenize(text)
@@ -214,7 +193,6 @@ func (c *Component) Run(ctx context.Context) error {
 
 			entry.Line = outputText
 
-			level.Info(c.opts.Logger).Log("receiver", c.opts.ID, "outgoing entry", entry.Line, "labels", entry.Labels.String())
 			for _, f := range c.fanout {
 				select {
 				case <-ctx.Done():
