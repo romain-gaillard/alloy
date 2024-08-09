@@ -16,3 +16,4 @@ This line contains a Vault service token HVS.vPaSQ0waQikazz2t9zYrZRsmqX6chCpaBw9
 This line contains Sentry sensitive info  sentry=bbdc7634f17d824fda3db536ebb929e5e107abcf6753920caf9e772b22262e63 and should be redacted.
 This line contains a generic token. token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9 and should be redacted.
 this is a test my password is hunter2, and my IP address is 1.2.3.4, Indigo Montoya is my nom de plume and 42 Wallaby Way is home and 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 goodbye
+This line contains a Slack secret but it's should be allowlisted: xoxb-943115731925-6165549194881-AF9NMWVoK4EEKbaAV3Pcrn7U.

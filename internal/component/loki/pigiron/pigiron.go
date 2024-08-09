@@ -4,6 +4,7 @@ import (
 	"context"
 	"path/filepath"
 	"sync"
+	"time"
 
 	"github.com/grafana/alloy/internal/component"
 	"github.com/grafana/alloy/internal/component/common/loki"
@@ -159,6 +160,7 @@ func (c *Component) Run(ctx context.Context) error {
 			return nil
 		case entry := <-c.receiver.Chan():
 			text := entry.Line
+			start := time.Now()
 
 			tokenized, err := c.bpe.Tokenize(text)
 			if err != nil {
@@ -192,6 +194,7 @@ func (c *Component) Run(ctx context.Context) error {
 			}
 
 			entry.Line = outputText
+			level.Info(c.opts.Logger).Log("msg", "time taken for model to process", "seconds", time.Since(start).Seconds())
 
 			for _, f := range c.fanout {
 				select {

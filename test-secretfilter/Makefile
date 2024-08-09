@@ -1,15 +1,15 @@
 .PHONY: up
-up: reset/env download-model
-	docker-compose up
+up: download-model
+	docker compose up
 
 .PHONY: up-build
-up-build: reset/env download-model
-	docker-compose build --no-cache
-	docker-compose up --force-recreate
+up-build: download-model
+	docker compose build 
+	docker compose up --force-recreate
 
 .PHONY: down
-down: down
-	docker-compose down
+down:
+	docker compose down
 
 .PHONY: reset/env
 reset/env: down
