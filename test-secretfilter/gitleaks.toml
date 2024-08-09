@@ -2935,3 +2935,51 @@ keywords = [
     "zendesk",
 ]
 
+[[rules]]
+id = "visa-credit-card-number"
+description = "Detected a Visa credit card number."
+regex = '''\b4[0-9]{12}(?:[0-9]{3})?\b'''
+keywords = [
+    "credit-card",
+]
+
+[[rules]]
+id = "mastercard-credit-card-number"
+description = "Detected a MasterCard credit card number."
+regex = '''\b(?:5[1-5][0-9]{2}|222[1-9]|22[3-9][0-9]|2[3-6][0-9]{2}|27[01][0-9]|2720)[0-9]{12}\b'''
+keywords = [
+    "credit-card",
+]
+
+[[rules]]
+id = "american-express-credit-card-number"
+description = "Detected an American Express credit card number."
+regex = '''\b3[47][0-9]{13}\b'''
+keywords = [
+    "credit-card",
+]
+
+[[rules]]
+id = "diners-club-credit-card-number"
+description = "Detected a Diners Club credit card number."
+regex = '''\b3(?:0[0-5]|[68][0-9])[0-9]{11}\b'''
+keywords = [
+    "credit-card",
+]
+
+[[rules]]
+id = "discover-credit-card-number"
+description = "Detected a Discover credit card number."
+regex = '''\b6(?:011|5[0-9]{2})[0-9]{12}\b'''
+keywords = [
+    "credit-card",
+]
+
+[[rules]]
+id = "jcb-credit-card-number"
+description = "Detected a JCB credit card number."
+regex = '''\b(?:2131|1800|35\d{3})\d{11}\b'''
+keywords = [
+    "credit-card",
+]
+
